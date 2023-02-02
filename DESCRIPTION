@@ -21,7 +21,5 @@ Suggests:
     globaltest, GlobalAncova, Rgraphviz, preprocessCore, genefilter, pheatmap, sva, limma, fitdistrplus,
     lars, Hmisc, magrittr, xtable, KEGGgraph, metap, entropy, rsm, httr, knitr, rmarkdown, devtools, testthat, 
     visNetwork, ggraph, RSclient, car, gdata, huge, ppcor, ctc, OptiLCMS
-Remotes:
-    bioc::release/siggenes
 VignetteBuilder: knitr
 LinkingTo: Rcpp
