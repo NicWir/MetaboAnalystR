@@ -11,7 +11,7 @@
 #'The second default is width = 0, where the width is 7.2. Otherwise users can input their own width.  
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 
 PlotQEA.MetSet<-function(mSetObj=NA, setNM, format="png", dpi=72, width=NA){
@@ -62,15 +62,27 @@ PlotQEA.MetSet<-function(mSetObj=NA, setNM, format="png", dpi=72, width=NA){
   len <- length(mSetObj$dataSet$cls);
   conc.vec <- lbl.vec <- cls.vec <- NULL;
   
-  for(i in 1:num){
+  if(mSetObj$dataSet$cls.type == "disc"){
+    for(i in 1:num){
         cmpd <- hit.cmpds[i];
         conc.vec <- c(conc.vec, mSetObj$analSet$msea.data[,cmpd]);
         cls.vec <- c(cls.vec, as.character(mSetObj$dataSet$cls));
         cmpd.p <- paste(cmpd, " (p=", hit.pvals[i], ")", sep="");
         lbl.vec <- c(lbl.vec, rep(cmpd.p, len));      
+    }
+    cls.vec <- as.factor(cls.vec);
+
+  }else{ # continuous value
+    for(i in 1:num){
+        cmpd <- hit.cmpds[i];
+        conc.vec <- c(conc.vec, mSetObj$analSet$msea.data[,cmpd]);
+        cls.vec <- c(cls.vec, mSetObj$dataSet$cls);
+        cmpd.p <- paste(cmpd, " (p=", hit.pvals[i], ")", sep="");
+        lbl.vec <- c(lbl.vec, rep(cmpd.p, len));      
+    }
+    cls.vec <- as.numeric(cls.vec);
   }
-  
-  cls.vec <- as.factor(cls.vec);
+
   lbl.vec <- factor(lbl.vec, levels = unique(lbl.vec));
 
   num <- length(hit.cmpds);
@@ -78,18 +90,23 @@ PlotQEA.MetSet<-function(mSetObj=NA, setNM, format="png", dpi=72, width=NA){
   
   # calculate width based on the dataset number
   if(num == 1){
-    
-    p <- ggplot(data = boxdata, aes(x=Class, y=Abundance)) + geom_boxplot(aes(fill=Class), outlier.shape = NA, outlier.colour=NA)
-    p <- p + theme(plot.title = element_text(hjust = 0.5)) + guides(fill=guide_legend(title="Group"))
-    p <- p + xlab("") + ylab("Relative Abundance") + theme_bw()
+    if(mSetObj$dataSet$cls.type == "disc"){
+        p <- ggplot(data = boxdata, aes(x=Class, y=Abundance)) + geom_boxplot(aes(fill=Class), outlier.shape = NA, outlier.colour=NA)
+        p <- p + theme(plot.title = element_text(hjust = 0.5)) + guides(fill=guide_legend(title="Group"))
+        p <- p + xlab(lbl.vec) + ylab("Relative Abundance") + theme_bw()
+    }else{
+        p <- ggplot(data = boxdata, aes(x=Abundance, y=Class)) + geom_point(shape=1) + geom_smooth(method=lm, se=FALSE) 
+        p <- p + theme(plot.title = element_text(hjust = 0.5)) + guides(fill=guide_legend(title="Association"))
+        p <- p + xlab(lbl.vec) + xlab("") + theme_bw()
+    }
     
     ggsave(p, filename = imgName, dpi=dpi, width=7, height=6, limitsize = FALSE)
 
   }else{
 
     if(num<10){
-      w = 10
-      h <- 10 * num/10
+      w = 12
+      h <- 6
       cols = 3
     }else if(num<5){
       w = 7
@@ -100,13 +117,14 @@ PlotQEA.MetSet<-function(mSetObj=NA, setNM, format="png", dpi=72, width=NA){
       h <- num * 0.55
       cols = 4
     }
-
-    bp <- ggplot(boxdata, aes(x=Class, y=Abundance, group=Class)) + 
-      geom_boxplot(aes(fill=Class), outlier.shape = NA, outlier.colour=NA) + theme_bw()
-    
-    bp <- bp + facet_wrap(. ~ Feature) + theme(strip.text.x = element_text(size=7), strip.background = element_rect(size=1)) + 
-      xlab("") + ylab("Relative Abundance")
-    
+    if(mSetObj$dataSet$cls.type == "disc"){
+        bp <- ggplot(boxdata, aes(x=Class, y=Abundance, group=Class)) + 
+        geom_boxplot(aes(fill=Class), outlier.shape = NA, outlier.colour=NA) + theme_bw()
+        bp <- bp + facet_wrap(. ~ Feature) + xlab("") + ylab("Relative Abundance")
+    }else{
+        bp <- ggplot(data = boxdata, aes(x=Abundance, y=Class)) + geom_point(shape=1) + geom_smooth(method=lm, se=FALSE) + theme_bw()
+        bp <- bp + facet_wrap(. ~ Feature) + ylab("Response") + xlab("Relative Abundance")
+    }
     ggsave(bp, filename = imgName, dpi=dpi, width=w, height=h, limitsize = FALSE)
   }
 
@@ -131,7 +149,7 @@ PlotQEA.MetSet<-function(mSetObj=NA, setNM, format="png", dpi=72, width=NA){
 #'The second default is width = 0, where the width is 7.2. Otherwise users can input their own width.  
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 
 PlotConcRange<-function(mSetObj=NA, nm, format="png", dpi=72, width=NA){
@@ -209,7 +227,7 @@ PlotConcRange<-function(mSetObj=NA, nm, format="png", dpi=72, width=NA){
 #'The second default is width = 0, where the width is 7.2. Otherwise users can input their own width.  
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 
 PlotORA<-function(mSetObj=NA, imgName, imgOpt, format="png", dpi=72, width=NA){
@@ -261,7 +279,7 @@ PlotORA<-function(mSetObj=NA, imgName, imgOpt, format="png", dpi=72, width=NA){
 #'The second default is width = 0, where the width is 7.2. Otherwise users can input their own width.  
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 #'
 PlotQEA.Overview <-function(mSetObj=NA, imgName, imgOpt, format="png", dpi=72, width=NA){
@@ -304,7 +322,7 @@ PlotQEA.Overview <-function(mSetObj=NA, imgName, imgOpt, format="png", dpi=72, w
 #'@param pvals Input the p-values
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 #'
 PlotMSEA.Overview <- function(folds, pvals){
@@ -348,7 +366,7 @@ PlotMSEA.Overview <- function(folds, pvals){
 #'The second default is width = 0, where the width is 7.2. Otherwise users can input their own width.  
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 
 PlotEnrichDotPlot <- function(mSetObj=NA, enrichType = "ora", imgName, format="png", dpi=72, width=NA){
@@ -456,7 +474,7 @@ concplot <- function(mn, lower, upper, labels=NULL,
 # so that the small p value is bigger, located on top of the color key
 # Jeff Xia, jeff.xia@mcgill.ca
 # McGill University, Canada
-# License: GNU GPL (>= 2)
+# License: MIT License
 
 image.plot <- function(..., add = FALSE, nlevel = 64,
                        horizontal = FALSE, legend.shrink = 0.9, legend.width = 1.2,
@@ -749,7 +767,7 @@ image.plot.plt <- function(x, add = FALSE, legend.shrink = 0.9,
 #' @param layoutOpt Input the layout option, default is set to layout.fruchterman.reingold
 #' @author Jeff Xia \email{jeff.xia@mcgill.ca}
 #' McGill University, Canada
-#' License: GNU GPL (>= 2)
+#' License: MIT License
 #' @export
 #' @import igraph
 
@@ -822,7 +840,7 @@ PlotEnrichNet.Overview <- function(folds, pvals, layoutOpt=layout.fruchterman.re
   # covert to json
   netData <- list(nodes=nodes, edges=edge.mat);
   sink("msea_network.json");
-  cat(rjson::toJSON(netData));
+  cat(RJSONIO::toJSON(netData));
   sink();
   
   return(g);  

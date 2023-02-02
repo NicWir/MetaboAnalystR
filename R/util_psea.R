@@ -1,41 +1,45 @@
-#' Create Mummichog Libraries from KEGG
-#' @description Function to create mummichog libraries from
-#' MetaboAnalyst pathway libraries (metpa).
-#' Outputs the RDS files in the current working directory. RDS files
-#' are saved using the KEGG organism code.
-#' @param folder Input the path of the folder containing the metpa rda files.
-#' @param kegg_compounds Input the name of the KEGG dictionary containing the 
-#' KEGG compound IDs, KEGG compopund names, and molecular weight.
-#' @export
-CreateMummichogLibs <- function(folder, kegg_compounds){
+###############################
+######## For R Package ########
+###############################
 
-  # Step 1: Get list of pathways to make mummichog libraries from 
-  folder <- folder
-  files <- list.files(folder, pattern = ".rda$")
+# Function to return the unique m/zs from the selected pathways 
+# based on the compounds
+
+GetMummichogMZHits <- function(mSetObj=NA, msetNm){
   
-  if(length(files) == 0){
-    AddErrMsg("No .rda files found in folder!")
-    return(0)
+  mSetObj <- .get.mSet(mSetObj);
+  
+  if(!is.null(mSetObj$api$lib)){
+    
+    # get file from api.metaboanalyst.ca
+    toSend = list(pathName = msetNm)
+    
+    load_httr()
+    base <- api.base
+    endpoint <- paste0("/mzhits/", mSetObj$api$guestName)
+    call <- paste(base, endpoint, sep="")
+    query_results <- httr::POST(call, body = toSend, encode= "json")
+    
+    if(query_results$status_code == 200){
+      result <- httr::content(query_results, "text")
+    }
+    mSetObj$mz.hits <- result
+    print(paste0("Unique m/z features in ", msetNm, ": ", result))
+    return(.set.mSet(mSetObj));
   }
   
-  # Step2: Create the models list 
-  models <- Map(rda2list, file.path(folder, files))
-  names(models) <- tools::file_path_sans_ext(files)
-  org <- names(models)
+  inx <- which(mSetObj$pathways$name == msetNm)
+  mset <- mSetObj$pathways$cpds[[inx]];
+  mzs <- as.numeric(unique(unlist(mSetObj$cpd2mz_dict[mset]))) 
+  result <- intersect(mzs, mSetObj$dataSet$input_mzlist)
+  mSetObj$mz.hits <- result
   
-  kegg_compounds <<- kegg_compounds
-  
-  # Step 3: Create the pathways
-  pathway <- lapply(models, function(f) {fillpathways(f)} )
-  
-  # Step 4: Create cpd.lib
-  cpd.lib <- lapply(pathway, function(l) {make_cpdlib(l)})
-  
-  # Step 5: Create mummichog libraries
-  # Will output the .RDS files in the current working directory
-  output <- mapply(CreateLibFromKEGG, cpd.lib, pathway, org)
-  
+  return(.set.mSet(mSetObj));
 }
+
+#################################################################
+######## Functions for updating or building new libraries ########
+##################################################################
 
 ## Utility function
 ## Make list of KEGG rda files

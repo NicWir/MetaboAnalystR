@@ -5,7 +5,7 @@
 #'@param dist.name Input distance method 
 #'@author Jeff Xia\email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'
 template.match <- function(x, template, dist.name) {
   k <- cor.test(x,template, method=dist.name);
@@ -81,7 +81,7 @@ Match.Pattern <- function(mSetObj=NA, dist.name="pearson", pattern=NULL){
 #'@param searchType searchType, default is "feature"
 #'@author Jeff Xia\email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 #'
 PlotCorr <- function(mSetObj=NA, imgName, searchType="feature", format="png", dpi=72, width=NA){
@@ -118,7 +118,7 @@ PlotCorr <- function(mSetObj=NA, imgName, searchType="feature", format="png", dp
   if(is.na(width)){
     w <- h <- 7.2;
   }else if(width == 0){
-    w <- 7.2;
+    w <- h <- 7.2;
   }else{
     w <- h <- width;
   }
@@ -154,7 +154,7 @@ PlotCorr <- function(mSetObj=NA, imgName, searchType="feature", format="png", dp
 #'@param no.clst Logical, indicate if the correlations should be clustered (TRUE) or not (FALSE).
 #'@param corrCutoff set corrCutoff
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 #'@import gplots
 #'
@@ -374,7 +374,7 @@ GenerateTemplates <- function(mSetObj=NA){
 #'@param varName Input the variable name
 #'@author Jeff Xia\email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 FeatureCorrelation <- function(mSetObj=NA, dist.name, varName){
   mSetObj <- .get.mSet(mSetObj);
@@ -427,8 +427,8 @@ KendallCorrFunc <- function(var1, var2, data){
 # inject functions from the Network-DSPC script
 ComputeDSPC <- function(mSetObj=NA){
      if(!exists("PerformDSPC")){ # public web on same user dir
-         compiler::loadcmp("../../rscripts/metaboanalystr/networks_enrich.Rc");  
-         compiler::loadcmp("../../rscripts/metaboanalystr/networks_view.Rc");      
+         .load.scripts.on.demand("networks_enrich.Rc");  
+         .load.scripts.on.demand("networks_view.Rc");      
      }
      return(PerformDSPC(mSetObj));
 }

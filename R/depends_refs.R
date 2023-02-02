@@ -20,7 +20,7 @@ melt.default <- function(data, ..., na.rm = FALSE, value.name = "value") {
 
 melt.list <- function(data, ..., level = 1) {
   require(plyr);
-  parts <- lapply(data, melt, level = level + 1, ...)
+  parts <- lapply(data, melt.default, level = level + 1, ...)
   result <- rbind.fill(parts)
   
   # Add labels
@@ -239,8 +239,8 @@ all_identical <- function(xs) {
 #' @importFrom vctrs vec_as_subscript2 vec_as_location2
 vars_pull <- function(vars, var = -1) {
   n <- length(vars)
-  
-  instrument_base_errors(
+  require(rlang)
+  tidyselect:::instrument_base_errors(
     loc <- eval_tidy(enquo(var), set_names(seq_along(vars), vars))
   )
   loc <- pull_as_location2(loc, n, vars)
@@ -253,7 +253,7 @@ vars_pull <- function(vars, var = -1) {
 }
 
 pull_as_location2 <- function(i, n, names) {
-  with_subscript_errors(type = "pull", {
+  tidyselect:::with_subscript_errors(type = "pull", {
     i <- vctrs::vec_as_subscript2(i, arg = "var", logical = "error")
     
     if (is.numeric(i)) {

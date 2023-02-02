@@ -1,6 +1,8 @@
-# internal variables and functions not to be modified by users
-# This is only for web version 
-.on.public.web <- FALSE; # only TRUE when on metaboanalyst web server
+
+.load.scripts.on.demand <- function(fileName=""){
+    complete.path <- paste0("../../rscripts/MetaboAnalystR/R/", fileName);
+    compiler::loadcmp(complete.path);
+}
 
 # note, this is usually used at the end of a function
 # for local, return itself; for web, push to global environment
@@ -27,12 +29,12 @@
 #'@param data.type The type of data, either list (Compound lists), conc (Compound concentration data), 
 #'specbin (Binned spectra data), pktable (Peak intensity table), nmrpeak (NMR peak lists), mspeak (MS peak lists), 
 #'or msspec (MS spectra data)
-#'@param anal.type Indicate the analysis module to be performed: stat, pathora, pathqea, msetora, msetssp, msetqea, ts, 
+#'@param anal.type Indicate the analysis module to be performed: stat, pathora, pathqea, msetora, msetssp, msetqea, mf, 
 #'cmpdmap, smpmap, or pathinteg
 #'@param paired Indicate if the data is paired or not. Logical, default set to FALSE
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 #'@import methods
 
@@ -43,6 +45,7 @@ InitDataObjects <- function(data.type, anal.type, paired=FALSE){
       mSetObj <- .get.mSet(mSet);
       mSetObj$dataSet$type <- data.type;
       mSetObj$dataSet$paired <- paired;
+      mSetObj$dataSet$pair.checked <- FALSE;
       mSetObj$analSet$type <- anal.type;
       mSetObj<-CleanDataObjects(mSetObj, anal.type);
       return(.set.mSet(mSetObj));
@@ -55,6 +58,7 @@ InitDataObjects <- function(data.type, anal.type, paired=FALSE){
   dataSet$cls.type <- "disc"; # default until specified otherwise
   dataSet$format <- "rowu";
   dataSet$paired <- paired;
+  dataSet$pair.checked <- FALSE;
   analSet <- list();
   analSet$type <- anal.type;
   Sys.setenv("OMP_NUM_THREADS" = 2); # to control parallel computing for some packages
@@ -209,29 +213,26 @@ UpdateDataObjects <- function(data.type, anal.type, paired=FALSE){
   # sqlite db path for gene annotation
   if(file.exists("/home/glassfish/sqlite/")){ #.on.public.web
     url.pre <<- "/home/glassfish/sqlite/";
-  }else if(file.exists("/home/jasmine/Downloads/sqlite/")){ #jasmine's local
-    url.pre <<- "/home/jasmine/Downloads/sqlite/";
-    #api.base <<- "localhost:8686"
-  }else if(file.exists("/Users/soufanom/Documents/Projects/gene-id-mapping/")){ # soufan laptop
-    url.pre <<- "/Users/soufanom/Documents/Projects/gene-id-mapping/";
-  }else if(file.exists("~/Documents/Projects/gene-id-mapping/")){
-    url.pre <<- "~/Documents/Projects/gene-id-mapping/"
   }else if(file.exists("/Users/xia/Dropbox/sqlite/")){ # xia local
-    url.pre <<- "/Users/xia/Dropbox/sqlite/";
+    url.pre <<- "/Users/jeffxia/Dropbox/sqlite/";
+  }else if(file.exists("/Users/jeffxia/Dropbox/sqlite/")){ # xia local2
+    url.pre <<- "/Users/jeffxia/Dropbox/sqlite/";
   }else if(file.exists("/media/zzggyy/disk/sqlite/")){
     url.pre <<-"/media/zzggyy/disk/sqlite/"; #zgy local)
   }else if(file.exists("/home/zgy/sqlite/")){
     url.pre <<-"/home/zgy/sqlite/"; #zgy local)
   } else if(file.exists("/home/le/sqlite/")){# le local
     url.pre <<-"/home/le/sqlite/";
+  } else if(file.exists("/Users/jessicaewald/sqlite/")){# jess local
+    url.pre <<-"/Users/jessicaewald/sqlite/";
   }else if(file.exists("/home/qiang/Music/")){# qiang local
     url.pre <<-"/home/qiang/sqlite/";
   }else{
-    url.pre <<- paste0(dirname(system.file("database", "sqlite/GeneID_25Species_JE/ath_genes.sqlite", package="MetaboAnalystR")), "/")
+    #url.pre <<- paste0(dirname(system.file("database", "sqlite/GeneID_25Species_JE/ath_genes.sqlite", package="MetaboAnalystR")), "/")
+    url.pre <<- "";
   }
   
   api.base <<- "http://api.xialab.ca"
-  #api.base <<- "132.216.38.6:8987"
   
 }
 #'For two factor time series only
@@ -240,7 +241,7 @@ UpdateDataObjects <- function(data.type, anal.type, paired=FALSE){
 #'@param design Input the design type
 #'@author Jeff Xia\email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 SetDesignType <-function(mSetObj=NA, design){
   mSetObj <- .get.mSet(mSetObj);
@@ -290,7 +291,7 @@ GetRCommandHistory <- function(mSetObj=NA){
 #'through an API call to the Metabolomics Workbench).
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}, Jasmine Chong
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 
 Read.TextData <- function(mSetObj=NA, filePath, format="rowu", 
@@ -320,7 +321,7 @@ Read.TextData <- function(mSetObj=NA, filePath, format="rowu",
   
   msg <- NULL;
   
-  if(substring(format,4,5)=="ts"){
+  if(substring(format,4,5)=="mf"){
     # two factor time series data
     if(substring(format,1,3)=="row"){ # sample in row
       msg<-c(msg, "Samples are in rows and features in columns");
@@ -500,7 +501,7 @@ Read.TextData <- function(mSetObj=NA, filePath, format="rowu",
     if(lbl.type == "disc"){
       mSetObj$dataSet$orig.cls <- mSetObj$dataSet$cls <- as.factor(as.character(cls.lbl));
       
-      if(substring(format,4,5)=="ts"){
+      if(substring(format,4,5)=="mf"){
         
         mSetObj$dataSet$facA.type <- is.numeric(facA);
         mSetObj$dataSet$orig.facA <- mSetObj$dataSet$facA <- as.factor(as.character(facA));
@@ -520,7 +521,7 @@ Read.TextData <- function(mSetObj=NA, filePath, format="rowu",
         return(0);
       })
       
-      if(mSetObj$dataSet$cls == 0){
+      if(!is.numeric(mSetObj$dataSet$cls) || any(is.na(mSetObj$dataSet$cls))){
         AddErrMsg("Class labels must be numeric and continuous!");
         return(0)
       }
@@ -550,7 +551,7 @@ Read.TextData <- function(mSetObj=NA, filePath, format="rowu",
 #'@param filePath Set file path
 #'@author Jeff Xia\email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 #'
 ReadPairFile <- function(filePath="pairs.txt"){
@@ -570,13 +571,13 @@ ReadPairFile <- function(filePath="pairs.txt"){
 #'@param mSetObj Input name of the created mSet Object
 #'@author Jeff Xia\email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 SaveTransformedData <- function(mSetObj=NA){
   if(.on.public.web){
     # make this lazy load
     if(!exists("my.save.data")){ # public web on same user dir
-      compiler::loadcmp("../../rscripts/metaboanalystr/_util_savedata.Rc");    
+      .load.scripts.on.demand("util_savedata.Rc");    
     }
     return(my.save.data(mSetObj));
   }else{
@@ -597,7 +598,7 @@ Read.mzTab <- function(mSetObj=NA, filename, identifier = "name") {
   if(.on.public.web){
     # make this lazy load
     if(!exists("my.parse.mztab")){ # public web on same user dir
-      compiler::loadcmp("../../rscripts/metaboanalystr/_util_mztab.Rc");    
+      .load.scripts.on.demand("util_mztab.Rc");    
     }
     return(my.parse.mztab(mSetObj, filename, identifier));
   }else{
@@ -616,7 +617,7 @@ Read.mzTab <- function(mSetObj=NA, filename, identifier = "name") {
 #'@param foldername Name of the folder containing the NMR or MS peak list files to read.
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@import qs
 #'@export
 
@@ -624,7 +625,7 @@ Read.PeakList<-function(mSetObj=NA, foldername="upload"){
   if(.on.public.web){
     # make this lazy load
     if(!exists("my.parse.peaklist")){ # public web on same user dir
-      compiler::loadcmp("../../rscripts/metaboanalystr/_util_peaks.Rc");    
+      .load.scripts.on.demand("util_peaks.Rc");    
     }
     return(my.parse.peaklist(mSetObj, foldername));
   }else{
@@ -683,7 +684,7 @@ GetCurrentMsg <- function(){
 #'@param version version
 #'@author Jeff Xia\email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 #'
 
@@ -732,45 +733,34 @@ PlotCmpdSummary <- function(mSetObj=NA, cmpdNm, meta="NA", version, format="png"
     
     # need to consider norm data were edited, different from proc
     smpl.nms <- rownames(mSetObj$dataSet$norm);
-    
-    mns <- by(as.numeric(proc.data[smpl.nms, cmpdNm]), sel.cls, mean, na.rm=T);
-    sds <- by(as.numeric(proc.data[smpl.nms, cmpdNm]), sel.cls, sd, na.rm=T);
-    
-    ups <- mns + sds;
-    dns <- mns - sds;
-    
-    # all concentration need start from 0
-    y <- c(0, dns, mns, ups);
-    
-    rg <- range(y) + 0.05 * diff(range(y)) * c(-1, 1)
-    pt <- pretty(y)
-    
-    axp=c(min(pt), max(pt[pt <= max(rg)]),length(pt[pt <= max(rg)]) - 1);
-    
+    proc.data <- proc.data[smpl.nms, ];
+
     # ggplot alternative
     col <- unique(GetColorSchema(sel.cls));
     
-    
+ ## plot orignal and normalize side by side
     if(cls.type == "disc"){
-      df.orig <- data.frame(value = as.vector(mns), name = levels(sel.cls), up = as.vector(ups), down = as.vector(dns))
-      p.orig <- ggplot(df.orig, aes(x = name, y = value, fill = name)) 
-      p.orig <- p.orig + geom_bar(stat = "identity", colour = "black") + theme_bw()
-      p.orig <- p.orig + scale_y_continuous(breaks=pt, limits = range(pt)) + ggtitle("Original Conc.")
-      p.orig <- p.orig + theme(plot.title = element_text(size = 11, hjust=0.5)) + theme(axis.text.x = element_text(angle=90, hjust=1))
+      df.orig <- data.frame(value=proc.data[, cmpdNm], name = sel.cls)
+      p.orig <- ggplot2::ggplot(df.orig, aes(x=name, y=value, fill=name))  
+      p.orig <- p.orig + geom_boxplot(notch=FALSE, outlier.shape = NA, outlier.colour=NA) + theme_bw() + geom_jitter(size=1)
       p.orig <- p.orig + theme(axis.title.x = element_blank(), axis.title.y = element_blank(), legend.position = "none")
+      p.orig <- p.orig + stat_summary(fun=mean, colour="yellow", geom="point", shape=18, size=3, show.legend = FALSE)
+      p.orig <- p.orig + scale_fill_manual(values=col) + ggtitle(cmpdNm) + theme(axis.text.x = element_text(angle=90, hjust=1))
+      p.orig <- p.orig + ggtitle("Original Conc.") + theme(plot.title = element_text(size = 11, hjust=0.5)) 
       p.orig <- p.orig + theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) # remove gridlines
-      p.orig <- p.orig + geom_segment(aes(xend=name, y=up, yend=dns)) + scale_fill_manual(values=col)
-      p.orig <- p.orig + theme(plot.margin = margin(t=0.35, r=0.5, b=0.15, l=0.15, "cm"), axis.text = element_text(size=10))
+      p.orig <- p.orig + theme(plot.margin = margin(t=0.35, r=0.25, b=0.15, l=0.5, "cm"), axis.text = element_text(size=10))
     }else{
-      df.orig <- data.frame(value=proc.data[, cmpdNm],  name = as.numeric(as.character(sel.cls)))
-      p.orig <- ggplot(df.orig, aes(x = name, y = value)) 
-      p.orig <- p.orig + geom_point(aes(col = -value), size = 1.5)  + theme_bw() 
-      p.orig <- p.orig + ggtitle("Original Conc.")
-      p.orig <- p.orig + theme(plot.title = element_text(size = 11, hjust=0.5)) + theme(axis.text.x = element_text(angle=90, hjust=1))
+      df.orig <- data.frame(value=proc.data[, cmpdNm], name = as.numeric(as.character(sel.cls)))
+      p.orig <- ggplot2::ggplot(df.orig, aes(x=name, y=value)) 
+      p.orig <- p.orig + geom_point(aes(col = -value), size = 1.5) + theme_bw() 
       p.orig <- p.orig + theme(axis.title.x = element_blank(), axis.title.y = element_blank(), legend.position = "none")
+      p.orig <- p.orig + ggtitle(cmpdNm) + theme(axis.text.x = element_text(angle=90, hjust=1))
+      p.orig <- p.orig + ggtitle("Normalized Conc.") + theme(plot.title = element_text(size = 11, hjust=0.5)) 
       p.orig <- p.orig + theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) # remove gridlines
-      p.orig <- p.orig + theme(plot.margin = margin(t=0.35, r=0.5, b=0.15, l=0.15, "cm"), axis.text = element_text(size=10))
+      p.orig <- p.orig + theme(plot.margin = margin(t=0.35, r=0.25, b=0.15, l=0.5, "cm"), axis.text = element_text(size=10))
     }
+##   
+
 
     if(cls.type == "disc"){
       df.norm <- data.frame(value=mSetObj$dataSet$norm[, cmpdNm], name = sel.cls)
@@ -835,7 +825,7 @@ PlotCmpdSummary <- function(mSetObj=NA, cmpdNm, meta="NA", version, format="png"
     p_all <- list()
     
     for(lv in levels(out.fac)){
-      print(lv)
+      #print(lv)
       inx <- out.fac == lv;
       if(cls.type == "disc"){
       df.orig <- data.frame(facA = lv, value = mSetObj$dataSet$norm[inx, cmpdNm], name = in.fac[inx])
@@ -885,7 +875,7 @@ PlotCmpdSummary <- function(mSetObj=NA, cmpdNm, meta="NA", version, format="png"
 #'@param qvec Input the vector to query
 #'@author Jeff Xia\email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 #'
 Setup.MapData <- function(mSetObj=NA, qvec){
@@ -908,7 +898,7 @@ GetMetaInfo <- function(mSetObj=NA){
 #'@param exp.fac exp.fac
 #'@author Jeff Xia\email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 # 
 GetGroupNames <- function(mSetObj=NA, exp.fac=NA){
@@ -975,29 +965,6 @@ GetExampleDataPath<-function(naviString){
   return(url.pre);
 }
 
-Read.TextDataMumMixed <- function(mSetObj=NA, filePath,filePath2, format="rowu", lbl.type="disc", order=NULL){
-  
-  temp_mSet1 <- Read.TextData(NA, filePath, format, lbl.type)
-  temp_mSet1 <- .get.mSet(mSetObj);
-  qs::qsave(temp_mSet1, file="data_orig_temp1.qs");
-  
-  temp_mSet1 <- qs::qread("data_orig_temp1.qs");
-  orig1 <- qs::qread("data_orig.qs");
-  
-  temp_mSet2 <- Read.TextData(NA, filePath2, format, lbl.type)
-  temp_mSet2 <-.get.mSet(mSetObj);
-  orig2 <- qs::qread("data_orig.qs");
-  mSetObj <- temp_mSet1
-  mSetObj$dataSet$mumType <- "table";
-  mSetObj$dataSet$mode <- "mixed"
-  orig <- cbind(orig1, orig2);
-  mSetObj$dataSet$pos_inx <- c(rep(TRUE, ncol(orig1)), rep(FALSE, ncol(orig2)))
-  qs::qsave(orig, file="data_orig.qs");
-  .set.mSet(mSetObj)
-  
-  return(1);
-}
-
 
 TableFormatCoerce <- function(oriFile = NULL, oriFormat = "Unknown", targetModule = "mummichog", sampleIn = "col"){
   
@@ -1022,13 +989,31 @@ TableFormatCoerce <- function(oriFile = NULL, oriFormat = "Unknown", targetModul
     }
   }
   
-  write.csv(df, file = oriFile, quote = FALSE, row.names = FALSE)
+  fast.write.csv(df, file = oriFile, row.names = FALSE)
   
 }
 
-################################################################################################
-################# First create table of all studies with named metabolites #####################
-################################################################################################
+
+checkDataGenericFormat <- function() {
+  
+  if(!file.exists("data_orig.qs")) return(0)
+  
+  dt <- qs::qread("data_orig.qs");
+  if(all(sapply(colnames(dt), FUN = function(x) {grepl("__",x)}))) {
+    return(1)
+  } 
+  if(all(sapply(colnames(dt), FUN = function(x) {grepl("@",x)}))) {
+    return(1)
+  }
+  
+  return(0)    
+}
+
+GetSampleNames <- function(mSetObj=NA){
+  mSetObj <- .get.mSet(mSetObj);
+  metaData <- mSetObj$dataSet$meta.info;
+  return(rownames(metaData));
+}
 
 #'Function to retrieve all available datasets from the Metabolomics Workbench.
 #'@description This function uses the httr R package to make an API
@@ -1038,7 +1023,7 @@ TableFormatCoerce <- function(oriFile = NULL, oriFormat = "Unknown", targetModul
 #'@param mSetObj Input the name of the created mSetObj (see InitDataObjects).
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}, Jasmine Chong
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 ListNMDRStudies <- function(mSetObj=NA){
   
@@ -1086,25 +1071,6 @@ ListNMDRStudies <- function(mSetObj=NA){
   return(.set.mSet(mSetObj));
 }
 
-checkDataGenericFormat <- function() {
-  
-  if(!file.exists("data_orig.qs")) return(0)
-  
-  dt <- qs::qread("data_orig.qs");
-  if(all(sapply(colnames(dt), FUN = function(x) {grepl("__",x)}))) {
-    return(1)
-  } 
-  if(all(sapply(colnames(dt), FUN = function(x) {grepl("@",x)}))) {
-    return(1)
-  }
-  
-  return(0)    
-}
-
-
-##################################################################################################
-################# Now using the StudyID download the study dataset as matrix #####################
-##################################################################################################
 
 #'Function to retrieve dataset from the Metabolomics Workbench.
 #'@description This function uses the httr R package to make an API
@@ -1117,327 +1083,20 @@ checkDataGenericFormat <- function() {
 #'from the Metabolomics Workbench.
 #'@author Jeff Xia \email{jeff.xia@mcgill.ca}, Jasmine Chong
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 GetNMDRStudy <- function(mSetObj=NA, StudyID){
   
-  mSetObj <- .get.mSet(mSetObj);
-  
-  check.inx <-  nchar(StudyID) == 8 & grep("ST", StudyID)
-  
-  if(!check.inx){
-    AddErrMsg("Error! Invalid Study ID selected!")
-    return(0)
-  }
-  
-  mSetObj$dataSet$NMDR_id <- StudyID
-  
-  load_httr()
-  call <- paste0("https://www.metabolomicsworkbench.org/rest/study/study_id/", StudyID, "/metaboanalyst")
-  
-  # set timeout to 45 seconds
-  query_results <- httr::GET(call, encode = "json", timeout = 45)
-  
-  if(query_results$status_code!=200){
-    AddErrMsg("Error! REST url to Metabolomics Workbench failed!")
-    return(0)
-  }
-  
-  # Parse the response into a table
-  query_results_text <- content(query_results, "text", encoding = "UTF-8")
-  query_study_dataset <- read.delim(text = query_results_text, header = T, check.names = F)
-  
-  if(nrow(query_study_dataset) < 3){
-    AddErrMsg("Error! Selected study does not have enough samples for downstream statistical analyses!")
-    return(0)
-  }
-  
-  if(ncol(query_study_dataset) < 3){
-    AddErrMsg("Error! Selected study does not have enough features for downstream statistical analyses!")
-    return(0)
-  }
-  
-  qs::qsave(query_study_dataset, "nmdr_study.qs")
-  
-  return(.set.mSet(mSetObj));
-}
-
-#' ReadMetaData
-#'
-#' @param mSetObj metaboanalyst object, initialized by InitDataObjects("pktable", "ts", FALSE)
-#' @param metafilename file path of data
-#' @export
-ReadMetaData <- function(mSetObj=NA, metafilename){
-  mSetObj <- .get.mSet(mSetObj);
-  
-  metadata <- .readDataTable(metafilename);
-  metadata[is.na(metadata)] = "NA"
-  if(class(metadata) == "try-error"){
-    AddErrMsg("Failed to read in the metadata file! Please make sure that the metadata file is in the right format and does not have empty cells or contains NA.");
-    return(0);
-  }
-
-  # at least 3 columns (two metadata + sample names)
-  if(ncol(metadata) < 3){
-    AddErrMsg("At least two metadata is required for this module! Please use <b>Statistical Analysis [one factor]</b> module instead");
-    return(0);
-  }
-
-  # need to add metadata sanity check
-  # are sample names identical to data$orig
-  # order samples in same way as in abundance table
-
-  smpl.nms <- metadata[,1];
-  smpl.var <- colnames(metadata)[-1]; 
-  mSetObj$dataSet$meta.types <- rep("disc", ncol(metadata) - 1)
-  mSetObj$dataSet$meta.status <- rep("OK", ncol(metadata) - 1)
-  names(mSetObj$dataSet$meta.status) <- colnames(metadata)[-1]
-
-  data.smpl.nms <- unname(mSetObj$dataSet$url.smp.nms);
-
-  nm.hits <- data.smpl.nms %in% smpl.nms;
-  if(!all(nm.hits)){
-    if(length(nm.hits)/length(data.smpl.nms) > 0.5){
-        AddErrMsg("More than 50% of sample names in your data are not present in the metadata file!");
-        AddErrMsg("Please double check if you choose the right data format option (samples in columns vs samples in rows)");
-    }else{
-        AddErrMsg("Some sample names in your data are not in the metadata file!");
-        mis.nms <- data.smpl.nms[!nm.hits];
-        AddErrMsg(paste(mis.nms, collapse="; "));
+    # make this lazy load
+    if(!exists("my.get.nmdr.data")){ # public web on same user dir
+      .load.scripts.on.demand("util_nmdr.Rc");    
+    }
+    res <- my.get.nmdr.data(StudyID);
+    if(res){
+        mSetObj <- .get.mSet(mSetObj);
+        mSetObj$dataSet$NMDR_id <- StudyID;
+        return(.set.mSet(mSetObj));
     }
     return(0);
-  }
-  
-  # now remove extra meta if present, and order them
-  nm.hits2 <- which(smpl.nms %in% data.smpl.nms);
-  metadata1 <- metadata[nm.hits2,];
-  smpl.nms <- smpl.nms[nm.hits2];
-  metadata1 <- metadata1[,-1];
-  metadata1[] <- lapply( metadata1, factor);
-
-  if(mSetObj$dataSet$design.type =="time" | mSetObj$dataSet$design.type =="time0"){
-    # determine time factor
-    if(!"time" %in% tolower(colnames(metadata1))){
-      AddErrMsg("No time points found in your data");
-      AddErrMsg("The time points group must be labeled as <b>Time</b>");
-      return(0);
-    }
-
-    if((mSetObj$dataSet$design.type =="time0" && ncol(metadata1) != 2 ) || !"subject" %in% tolower(colnames(metadata1)) ){
-      AddErrMsg("Make sure the metadata table contains two columns named: time and subject!");
-      return(0)
-    }
-
-    if((mSetObj$dataSet$design.type =="time" && ncol(metadata1) != 3 )|| !"subject" %in% tolower(colnames(metadata1)) ){
-      AddErrMsg("Make sure the metadata table contains three columns named: time, phenotype and subject");
-      return(0)
-    }
-    
-    # determine time factor and should order first by subject then by each time points
-    time.inx <- which(tolower(colnames(metadata1)) == "time");
-    sbj.inx <- which(tolower(colnames(metadata1)) == "subject");
-
-    # check if balanced
-    timeFreq <- table(metadata1[, time.inx]);
-    sbjFreq <- table(metadata1[, sbj.inx]);
-
-    timeBalanced <- min(timeFreq) == max(timeFreq);
-    sbjFreq <- min(sbjFreq) == max(sbjFreq)
-    
-    if(!timeBalanced || !sbjFreq){
-      AddErrMsg("Make sure the samples are balanced (i.e. No missing time points for any subjects).");
-      return(0)
-    }
-
-    enoughRep <- min(timeFreq) > 2 
-
-    if(!enoughRep){
-      AddErrMsg("At least 3 time points are required.");
-      return(0)
-    }
-
-    ordInx <- order(metadata1[,sbj.inx], metadata1[,time.inx])
-
-    metadata1 <- metadata1[ordInx,]
-    smpl.nms <- smpl.nms[ordInx]
-    time.fac <- metadata1[,time.inx]
-    exp.fac <- metadata1[,-time.inx]
-    if(ncol(metadata1)>2){
-      exp.fac <- exp.fac[,1]
-    }
-
-    mSetObj$dataSet$time.fac <- time.fac;
-    mSetObj$dataSet$exp.fac <- exp.fac;
-    if(mSetObj$dataSet$design.type =="time"){
-        cls.inx <- which(!(tolower(colnames(metadata1)) %in% c("time","subject")));
-        metadata1 <- metadata1[,c(cls.inx, time.inx, sbj.inx)];
-
-        facA.lbl <- colnames(metadata1)[1];
-        cls.lbl <- facA <- metadata1[,1];
-        mSetObj$dataSet$facA.type <- is.numeric(facA);
-        mSetObj$dataSet$orig.facA <- mSetObj$dataSet$facA <- as.factor(as.character(facA));
-        mSetObj$dataSet$facA.lbl <- facA.lbl;
-
-        facB.lbl <- colnames(metadata1)[2];
-        facB <- metadata1[,2];    
-        mSetObj$dataSet$facB.type <- is.numeric(facB);
-        mSetObj$dataSet$orig.facB <- mSetObj$dataSet$facB <- as.factor(as.character(facB));
-        mSetObj$dataSet$facB.lbl <- facB.lbl;
-
-    }else{ # time0
-        metadata1 <- metadata1[,c(time.inx, sbj.inx)];
-        facA.lbl <- colnames(metadata1)[1];
-        cls.lbl <- facA <- metadata1[,1];
-        mSetObj$dataSet$facA.type <- is.numeric(facA);
-        mSetObj$dataSet$orig.facA <- mSetObj$dataSet$facA <- as.factor(as.character(facA));
-        mSetObj$dataSet$facA.lbl <- facA.lbl;
-    }
-  }
-
-  rownames(metadata1) <- smpl.nms;
-  mSetObj$dataSet$meta.info <- mSetObj$dataSet$orig.meta.info <- metadata1;
-  mSetObj$dataSet$types.cls.lbl <- sapply(metadata1, function(x) class(x) ) 
-  mSetObj$dataSet$orig.cls <- mSetObj$dataSet$cls <- metadata1[,1]
-  names(mSetObj$dataSet$meta.types) <- colnames(mSetObj$dataSet$meta.info)
-  names(mSetObj$dataSet$types.cls.lbl) <- colnames(mSetObj$dataSet$meta.info)
-  mSetObj$dataSet$type.cls.lbl <- class(mSetObj$dataSet$meta.info[,1]);
-  return(.set.mSet(mSetObj));
 }
 
-GetMetaByCol <- function(mSetObj=NA, metaname){
-  mSetObj <- .get.mSet(mSetObj);
-  metaData <- mSetObj$dataSet$meta.info;
-  return(metaData[,metaname]);
-}
-
-GetSampleNames <- function(mSetObj=NA){
-  mSetObj <- .get.mSet(mSetObj);
-  metaData <- mSetObj$dataSet$meta.info;
-  return(rownames(metaData));
-}
-
-
-
-#' Read.TextDataTs
-#' @description Read.TextDataTs is used to read metabolomics data for co-vairiate analysis
-#' @param mSetObj metaboanalyst object, initialized by InitDataObjects("pktable", "ts", FALSE)
-#' @param filePath file path of data
-#' @param format format of data table, can be "rowu" or "colu"
-#' @export
-Read.TextDataTs <- function(mSetObj=NA, filePath, format="rowu"){
-  mSetObj <- .get.mSet(mSetObj);
-  
-  mSetObj$dataSet$format <- format;
-  
-  dat <- .readDataTable(filePath);
-  
-  if(class(dat) == "try-error" || ncol(dat) == 1){
-    AddErrMsg("Data format error. Failed to read in the data!");
-    AddErrMsg("Make sure the data table is saved as comma separated values (.csv) format!");
-    AddErrMsg("Please also check the followings: ");
-    AddErrMsg("Either sample or feature names must in UTF-8 encoding; Latin, Greek letters are not allowed.");
-    AddErrMsg("We recommend to use a combination of English letters, underscore, and numbers for naming purpose.");
-    AddErrMsg("Make sure sample names and feature (peak, compound) names are unique.");
-    AddErrMsg("Missing values should be blank or NA without quote.");
-    AddErrMsg("Make sure the file delimeters are commas.");
-    return(0);
-  }
-  
-  msg <- NULL;
-  
-  # two factor time series data
-  if(substring(format,1,3)=="row"){ # sample in row
-    msg<-c(msg, "Samples are in rows and features in columns");
-    smpl.nms <-dat[,1];
-    all.nms <- colnames(dat);
-    #facA.lbl <- all.nms[2];
-    #cls.lbl <- facA <- dat[,2]; # default assign facA to cls.lbl in order for one-factor analysis
-    #facB.lbl <- all.nms[3];
-    #facB <- dat[,3];
-    conc <- dat[,-1]; #dat[,-c(1:3)];
-    var.nms <- colnames(conc);
-  }else{ # sample in col
-    msg<-c(msg, "Samples are in columns and features in rows.");
-    all.nms <- dat[,1];
-    conc<-t(dat[,-1]);
-    var.nms <- dat[,1];
-    smpl.nms <- rownames(conc);
-  }
-  
-  
-  empty.inx <- is.na(var.nms) | var.nms == "";
-  if(sum(empty.inx) > 0){
-    msg <- c(msg, paste("<font color=\"red\">", sum(empty.inx), "empty features</font> were detected and excluded from your data."));
-    var.nms <- var.nms[!empty.inx];
-    conc <- conc[,!empty.inx];
-  }
-  
-  if(length(unique(var.nms))!=length(var.nms)){
-    dup.nm <- paste(var.nms[duplicated(var.nms)], collapse=" ");
-    AddErrMsg("Duplicate feature names are not allowed!");
-    AddErrMsg(dup.nm);
-    return(0);
-  }
-  
-  if(sum(is.na(iconv(smpl.nms)))>0){
-    na.inx <- is.na(iconv(smpl.nms));
-    nms <- paste(smpl.nms[na.inx], collapse="; ");
-    AddErrMsg(paste("No special letters (i.e. Latin, Greek) are allowed in sample names!", nms, collapse=" "));
-    return(0);
-  }
-  
-  if(sum(is.na(iconv(var.nms)))>0){
-    na.inx <- is.na(iconv(var.nms));
-    nms <- paste(var.nms[na.inx], collapse="; ");
-    AddErrMsg(paste("No special letters (i.e. Latin, Greek) are allowed in feature names!", nms, collapse=" "));
-    return(0);
-  }
-  
-  url.smp.nms <- CleanNames(smpl.nms);
-  names(url.smp.nms) <- smpl.nms;
-  
-  url.var.nms <- CleanNames(var.nms); # allow space, comma and period
-  names(url.var.nms) <- var.nms;
-  
-  rownames(conc) <- smpl.nms;
-  colnames(conc) <- var.nms;
-  
-  mSetObj$dataSet$url.var.nms <- url.var.nms;
-  mSetObj$dataSet$url.smp.nms <- url.smp.nms;
-  
-  qs::qsave(conc, file="data_orig.qs");
-  mSetObj$msgSet$read.msg <- c(msg, paste("The uploaded data file contains ", nrow(conc),
-                                          " (samples) by ", ncol(conc), " (", tolower(GetVariableLabel(mSetObj$dataSet$type)), ") data matrix.", sep=""));
-  
-  return(.set.mSet(mSetObj));
-}
-
-UpdateMetaData <- function(mSetObj=NA){
-  mSetObj <- .get.mSet(mSetObj);
-  if(!exists('meta.nm.vec')){
-    sel.meta.vecs <- mSetObj$dataSet$orig.meta.info
-  }else{
-    sel.meta.vecs <- mSetObj$dataSet$orig.meta.info[, meta.nm.vec]
-  }
-  mSetObj$dataSet$meta.info <- sel.meta.vecs;
-  return(.set.mSet(mSetObj))
-}
-
-GetMetaTypes <- function(mSetObj=NA){
-  mSetObj <- .get.mSet(mSetObj);
-  return(unname(mSetObj$dataSet$meta.types));
-
-}
-
-RemoveSelectedMeta <- function(mSetObj=NA, meta){
-  mSetObj <- .get.mSet(mSetObj);
-  inx <- which(colnames(mSetObj$dataSet$meta.info) == meta);
-  mSetObj$dataSet$meta.info <- mSetObj$dataSet$meta.info[, -inx];
-  inx1 <- which(names(mSetObj$dataSet$meta.types) == meta);
-  mSetObj$dataSet$meta.types <- mSetObj$dataSet$meta.types[-inx1];
-  inx2 <- which(names(mSetObj$dataSet$meta.status) == meta);
-  mSetObj$dataSet$meta.status <- mSetObj$dataSet$meta.status[-inx2];
-  inx3 <- which(names(mSetObj$dataSet$types.cls.lbl) == meta);
-  mSetObj$dataSet$types.cls.lbl <- mSetObj$dataSet$types.cls.lbl[-inx3];
-  return(.set.mSet(mSetObj))
-}

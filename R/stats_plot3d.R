@@ -2,7 +2,7 @@
 ### Description: 3D scatter plot for PDF report (not used for web display)
 ### Author: Jeff Xia, jeff.xia@mcgill.ca
 ### McGill University, Canada
-### License: GNU GPL (>= 2)
+### License: MIT License
 
 Plot3D <- function(x, y, z, xlab= xlabel, ylab=ylabel, zlab=zlabel, 
                    angle =angl, color=cols, pch=pchs){
@@ -10,7 +10,7 @@ Plot3D <- function(x, y, z, xlab= xlabel, ylab=ylabel, zlab=zlabel,
   if(.on.public.web){
     # make this lazy load
     if(!exists("my.plot.scatter3d")){ # public web on same user dir
-      compiler::loadcmp("../../rscripts/metaboanalystr/_util_plot3d.Rc");    
+      .load.scripts.on.demand("util_plot3d.Rc");    
     }
     return(my.plot.scatter3d(x, y, z, xlab=xlab, ylab=ylab, 
                              zlab=zlab, angle =angle, color=color, pch=pch));
@@ -27,7 +27,7 @@ Plot3D <- function(x, y, z, xlab= xlabel, ylab=ylabel, zlab=zlabel,
 #'the plot, if your mSetObj is named mSet, type "mSet$imgSet$pca.3d" inro your R console, and the 3D plot will appear.
 #'@author Jeff Xia\email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@usage PlotPCA3DScoreImg(mSetObj=NA, imgName, 
 #'format="png", dpi=72, width=NA, inx1, inx2, inx3, angl)
 #'@param mSetObj Input name of the created mSet Object.
@@ -122,7 +122,7 @@ PlotPCA3DScoreImg <- function(mSetObj=NA, imgName, format="png",
 #'@param angl Input the angle
 #'@author Jeff Xia\email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 #'@importFrom plotly plot_ly add_markers layout
 PlotSPLS3DScoreImg<-function(mSetObj=NA, imgName, format="png", dpi=72, width=NA, inx1, inx2, inx3, angl){
@@ -193,7 +193,7 @@ PlotSPLS3DScoreImg<-function(mSetObj=NA, imgName, format="png", dpi=72, width=NA
 #'@param angl Input the angle
 #'@author Jeff Xia\email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 #'@importFrom plotly plot_ly add_markers layout
 PlotSPLS3DScoreImg<-function(mSetObj=NA, imgName, format="png", dpi=72, width=NA, inx1, inx2, inx3, angl){
@@ -264,7 +264,7 @@ PlotSPLS3DScoreImg<-function(mSetObj=NA, imgName, format="png", dpi=72, width=NA
 #'@param angl Input the angle
 #'@author Jeff Xia\email{jeff.xia@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 #'@importFrom plotly plot_ly add_markers layout
 

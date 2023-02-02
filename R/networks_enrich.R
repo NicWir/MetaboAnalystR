@@ -49,7 +49,14 @@ GetNetworkGeneMappingResultTable<-function(mSetObj=NA){
   
   org.code <- mSetObj$org;
   sqlite.path <- paste0(url.pre, org.code, "_genes.sqlite");
-  con <- .get.sqlite.con(sqlite.path); ; 
+  if(!file.exists(sqlite.path)){
+    #"https://www.xialab.ca/resources/sqlite/hsa_genes.sqlite"
+    sqlite_url <- paste0("https://www.xialab.ca/resources/sqlite/", 
+                          org.code, "_genes.sqlite");
+    sqlite.path <- paste0(getwd(), "/",org.code, "_genes.sqlite")
+    download.file(sqlite_url,destfile = sqlite.path, method = "curl")
+  }
+  con <- .get.sqlite.con(sqlite.path);
   gene.db <- dbReadTable(con, "entrez")
 
   hit.inx <- match(enIDs, gene.db[, "gene_id"]);
@@ -156,7 +163,7 @@ GetNetworkGeneMappingResultTable<-function(mSetObj=NA){
 #'@param min.score Input the minimal score, only used for the STRING database 
 #'@author Othman Soufan, Jeff Xia \email{jeff.xia@mcgill.ca}, {othman.soufan@mcgill.ca}
 #'McGill University, Canada
-#'License: GNU GPL (>= 2)
+#'License: MIT License
 #'@export
 #'@import RSQLite
 SearchNetDB <- function(mSetObj=NA, db.type, table.nm, require.exp=TRUE, min.score = 900){
@@ -267,7 +274,7 @@ QueryPhenoSQLite <- function(table.nm, genes, cmpds, min.score){
     sqlite.path <- paste0(url.pre, "MetPriCNet.sqlite");
     pheno.db <- .get.sqlite.con(sqlite.path);
   }else{
-    download.file("https://www.metaboanalyst.ca/resources/libs/network/MetPriCNet.sqlite", "MetPriCNet.sqlite")
+    download.file("https://www.xialab.ca/resources/sqlite/MetPriCNet.sqlite", "MetPriCNet.sqlite")
     pheno.db <- dbConnect(SQLite(), "MetPriCNet.sqlite");
   }
   
